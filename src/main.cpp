@@ -161,10 +161,9 @@ public:
 		string resourceDirectory = "../resources" ;
 		// Initialize mesh.
 		shape = make_shared<Shape>();
-		shape->loadMesh(resourceDirectory + "/t800.obj");
+		shape->loadMesh(resourceDirectory + "/sphere.obj");
 		shape->resize();
 		shape->init();
-
 	}
 
 	//General OGL initialization - set OGL state here
@@ -176,6 +175,10 @@ public:
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		// Enable z-buffer test.
 		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_CULL_FACE);
+		glFrontFace(GL_CCW);
 
 		// Initialize the GLSL program.
 		prog = std::make_shared<Program>();
@@ -186,6 +189,9 @@ public:
 		prog->addUniform("V");
 		prog->addUniform("M");
 		prog->addUniform("campos");
+		prog->addUniform("materialColor");
+		prog->addUniform("a");
+		prog->addUniform("pw");
 		prog->addAttribute("vertPos");
 		prog->addAttribute("vertNor");
 	}
@@ -212,47 +218,77 @@ public:
 		// Create the matrix stacks - please leave these alone for now
 		
 		glm::mat4 V, M, P; //View, Model and Perspective matrix
-		V = glm::mat4(1);
+		V = mycam.process(frametime);
 		M = glm::mat4(1);
 		// Apply orthographic projection....
 		P = glm::ortho(-1 * aspect, 1 * aspect, -1.0f, 1.0f, -2.0f, 100.0f);		
 		if (width < height)
-			{
 			P = glm::ortho(-1.0f, 1.0f, -1.0f / aspect,  1.0f / aspect, -2.0f, 100.0f);
-			}
 		// ...but we overwrite it (optional) with a perspective projection.
 		P = glm::perspective((float)(3.14159 / 4.), (float)((float)width/ (float)height), 0.1f, 1000.0f); //so much type casting... GLM metods are quite funny ones
-
-		//animation with the model matrix:
-		static float w = 0.0;
-		w += 1.0 * frametime;//rotation angle
-		float trans = 0;// sin(t) * 2;
-		glm::mat4 RotateY = glm::rotate(glm::mat4(1.0f), w, glm::vec3(0.0f, 1.0f, 0.0f));
-		float angle = -3.1415926/2.0;
-		glm::mat4 RotateX = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(1.0f, 0.0f, 0.0f));
-		glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3 + trans));
-		glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 0.8f, 0.8f));
-
-		M =  TransZ * RotateY * RotateX * S;
 
 		// Draw the box using GLSL.
 		prog->bind();
 
-		V = mycam.process(frametime);
 		//send the matrices to the shaders
 		glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+		glUniform3f(prog->getUniform("campos"), -mycam.pos.x, -mycam.pos.y, -mycam.pos.z);
+
+		vec3 clr = { 0, 0, 1 };
+		float a = 1, pw = 1000;
+		mat4 S1 = scale(mat4(1.0f), vec3(0.3, 0.3, 0.3));
+		mat4 T1 = translate(mat4(1.0f), vec3(0, 0, -1));
+		mat4 M1 = T1 * S1;
+		M = M1;
 		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-		glUniform3fv(prog->getUniform("campos"), 1, &mycam.pos[0]);
-
+		glUniform3f(prog->getUniform("materialColor"), clr.x, clr.y, clr.z);
+		glUniform1f(prog->getUniform("a"), a);
+		glUniform1f(prog->getUniform("pw"), pw);
 		shape->draw(prog);
-	
 
+		pw = 500;
+		clr = { 0, 1, 1 };
+		mat4 T2 = translate(mat4(1.0f), vec3(-1, 0, 0));
+		M = T2 * M1;
+		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform3f(prog->getUniform("materialColor"), clr.x, clr.y, clr.z); 
+		glUniform1f(prog->getUniform("a"), a);
+		glUniform1f(prog->getUniform("pw"), pw);
+		shape->draw(prog);
+
+		pw = 50;
+		clr = { 1, 1, 0 };
+		mat4 T3 = translate(mat4(1.0f), vec3(-2, 0, 0));
+		M = T3 * M1;
+		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform3f(prog->getUniform("materialColor"), clr.x, clr.y, clr.z);
+		glUniform1f(prog->getUniform("a"), a);
+		glUniform1f(prog->getUniform("pw"), pw);
+		shape->draw(prog);
+
+		pw = 10;
+		clr = { 1, 0, 1 };
+		mat4 T4 = translate(mat4(1.0f), vec3(1, 0, 0));
+		M = T4 * M1;
+		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform3f(prog->getUniform("materialColor"), clr.x, clr.y, clr.z);
+		glUniform1f(prog->getUniform("a"), a);
+		glUniform1f(prog->getUniform("pw"), pw);
+		shape->draw(prog);
+
+		a = 0.5, pw = 100;
+		clr = { 1, 0, 0 };
+		mat4 T5 = translate(mat4(1.0f), vec3(2, 0, 0));
+		M = T5 * M1;
+		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform3f(prog->getUniform("materialColor"), clr.x, clr.y, clr.z);
+		glUniform1f(prog->getUniform("a"), a);
+		glUniform1f(prog->getUniform("pw"), pw);
+		shape->draw(prog);
 		
 		prog->unbind();
-
 	}
-
 };
 //******************************************************************************************
 int main(int argc, char **argv)
